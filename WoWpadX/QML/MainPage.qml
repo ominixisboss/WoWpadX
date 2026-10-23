@@ -79,7 +79,7 @@ Item {
             spacing: 5
 
             Label {
-                text: "Thank you for using WoWpadX!"
+                text: "Thank you for using AzerothPad HD!"
                 wrapMode: Text.Wrap
                 horizontalAlignment: Qt.AlignHCenter
                 Layout.preferredWidth: 200
@@ -125,7 +125,7 @@ Item {
                 spacing: 5 
 
                 Label {
-                    text: "https://github.com/leoaviana/WoWpadX/issues"
+                    text: "https://github.com/ominixisboss/WoWpadX/issues"
                     color: "cornflowerblue"
                     font.pixelSize: 12
                     font.underline: true
@@ -144,7 +144,7 @@ Item {
                 spacing: 5 
                 Label {
                     id: versionText
-                    text: "WoWpadX Version " + MainPageController.appVersion
+                    text: "AzerothPad HD Version " + MainPageController.appVersion
                     color: "#7F7F7F"
                     horizontalAlignment: Qt.AlignHCenter
                 }
@@ -153,6 +153,6 @@ Item {
     }
 
     function gitLinkClick() {
-        Qt.openUrlExternally("https://github.com/leoaviana/WoWpadX/issues")
+        Qt.openUrlExternally("https://github.com/ominixisboss/WoWpadX/issues")
     }
 }

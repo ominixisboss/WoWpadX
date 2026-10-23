@@ -28,7 +28,7 @@ Item {
         }
 */
         CheckBox {
-            text: "Close WoWpadX to the notification icon"
+            text: "Close AzerothPad HD to the notification icon"
             checked: AppSettings.runInBackground
             onToggled: AppSettings.runInBackground = checked
         }
@@ -40,7 +40,7 @@ Item {
         }
 
         CheckBox {
-            text: "Output log file to WoWpadX folder"
+            text: "Output log file to AzerothPad HD folder"
             checked: AppSettings.enableLogging
             onToggled: AppSettings.enableLogging = checked
         }
@@ -65,7 +65,7 @@ Item {
             spacing: 5
             Label {
                 id: versionText
-                text: "WoWpadX Version " + MainPageController.appVersion
+                text: "AzerothPad HD Version " + MainPageController.appVersion
                 color: "#7F7F7F"
                 horizontalAlignment: Qt.AlignHCenter
             }

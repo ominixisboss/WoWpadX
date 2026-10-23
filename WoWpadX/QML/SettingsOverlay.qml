@@ -45,7 +45,7 @@ Item {
 
         CheckBox {
             id: checkEnableOverlay
-            text: "Enable WoWpadX in-game overlay"
+            text: "Enable AzerothPad HD in-game overlay"
             checked: AppSettings.enableOverlay
             onToggled: AppSettings.enableOverlay = checked
         }

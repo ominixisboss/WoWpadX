@@ -290,7 +290,7 @@ QJsonObject AppSettings::defaultSettings() const {
         { "cursorDeadzone", 20 },
         { "cursorSpeed", 16 },
         { "cursorCurve", 4 },
-        { "enableMemoryReading", false },
+        { "enableMemoryReading", true },
         { "swapSticks", false },
         { "movementThreshold", 40 },
         { "inputDirectKeyboard", true },

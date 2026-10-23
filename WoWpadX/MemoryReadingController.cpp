@@ -334,7 +334,7 @@ void MemoryReadingController::buttonRefreshValuesClicked() {
 }
 
 void MemoryReadingController::textMoreInfoClicked() {
-    QDesktopServices::openUrl(QUrl("https://github.com/leoaviana/WoWpadX/blob/master/Docs/PixelBridge.md"));
+    QDesktopServices::openUrl(QUrl("https://github.com/ominixisboss/WoWpadX/blob/master/Docs/PixelBridge.md"));
 }
 
 void MemoryReadingController::aoeOverrideChanged(int confirmIndex, int cancelIndex) {

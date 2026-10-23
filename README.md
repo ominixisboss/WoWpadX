@@ -1,3 +1,20 @@
+# **AzerothPad HD**
+
+**Controller mapping for World of Warcraft 3.3.5a HD clients, powered by ConsolePortLK and Pixel Bridge.**
+
+AzerothPad HD is a fork of [WoWpadX](https://github.com/leoaviana/WoWpadX) by leoaviana, tuned for 3.3.5a HD setups (HD texture/model packs, DXVK, high resolutions and DPI scaling):
+
+* **Pixel Bridge fixed for HD:** it reads the composited screen (works with DXVK `d3d9.dll`), sizes the beacon independently of UI scale and DPI, and samples the center of each block.
+* **Pixel Bridge on by default** in both the app and the matching addon.
+* **Correct game window detection** when the client opens extra helper windows.
+* Can run alongside an original WoWpadX install (separate executable, instance lock and settings folder).
+
+Use it with the matching addon from [ominixisboss/ConsolePortLK](https://github.com/ominixisboss/ConsolePortLK/tree/fix/pixel-bridge-hd).
+
+---
+
+*Original WoWpadX README follows. Where it says `WoWpadX.exe`, use `AzerothPadHD.exe`.*
+
 # **WoWpadX**
 
 **A high-performance controller mapping utility for ConsolePortLK**

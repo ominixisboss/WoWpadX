@@ -93,8 +93,8 @@ void MainPageController::onUiTimerElapsed()
 
 void MainPageController::checkForUpdates()
 {
-    QNetworkRequest request(QUrl("https://api.github.com/repos/leoaviana/WoWpadX/releases/latest"));
-    request.setHeader(QNetworkRequest::UserAgentHeader, "WoWpadX");
+    QNetworkRequest request(QUrl("https://api.github.com/repos/ominixisboss/WoWpadX/releases/latest"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, "AzerothPadHD");
     _networkManager.get(request);
 }
 
@@ -151,7 +151,7 @@ void MainPageController::onUpdateReply(QNetworkReply* reply)
         emit updateStatusColorChanged();
         emit updateIconSourceChanged();
 
-        m_downloadUrl = "https://github.com/leoaviana/WoWpadX/releases/latest";
+        m_downloadUrl = "https://github.com/ominixisboss/WoWpadX/releases/latest";
     }
     else {
         m_updateStatus = QString("You have the latest version.");

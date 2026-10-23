@@ -25,7 +25,7 @@
 #pragma comment(lib, "Shcore.lib")
 
 const QString APP_VERSION = "1.0.0";
-const QString IPC_SERVER_NAME = "WoWpadX_IPC_Server";
+const QString IPC_SERVER_NAME = "AzerothPadHD_IPC_Server";
 std::atomic<bool> headlessRunning(true);
 
 /**
@@ -76,7 +76,7 @@ int runWithProcessLaunch(const QString& exePath, bool keepAlive)
         WaitForSingleObject(pi.hProcess, INFINITE);
     }
     else {
-        Log::writeLine("Headless Keep-Alive active. Use 'WoWpadX.exe --stop' to exit.");
+        Log::writeLine("Headless Keep-Alive active. Use 'AzerothPadHD.exe --stop' to exit.");
         while (headlessRunning) {
             if (WaitForSingleObject(pi.hProcess, 100) == WAIT_OBJECT_0) {
                 // Game exited, but we stay alive because keepAlive is true
@@ -93,7 +93,7 @@ int runWithProcessLaunch(const QString& exePath, bool keepAlive)
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    Log::writeLine("Closing WoWpadX...");
+    Log::writeLine("Closing AzerothPad HD...");
     InputMapper::Stop();
     ControllerManager::instance()->stopWatcher();
     ProcessManager::stop();
@@ -109,16 +109,16 @@ void showConsoleHelp() {
         freopen_s(&fp, "CONOUT$", "w", stderr);
     }
 #endif
-    std::cout << "\nWoWpadX v" << APP_VERSION.toStdString() << " - Gamepad Mapper for WoW 3.3.5a / ConsolePortLK\n";
+    std::cout << "\nAzerothPad HD v" << APP_VERSION.toStdString() << " - Gamepad Mapper for WoW 3.3.5a HD / ConsolePortLK\n";
     std::cout << "---------------------------------------------------------------\n";
-    std::cout << "Usage: WoWpadX.exe [options]\n\n";
+    std::cout << "Usage: AzerothPadHD.exe [options]\n\n";
     std::cout << "Actions:\n";
     std::cout << "  -l <path>      Launch the specified game executable and start mapping.\n";
     std::cout << "  --stop         Sends a shutdown signal to the running instance.\n\n";
     std::cout << "Modifiers (used with -l):\n";
     std::cout << "  -n             No-GUI (Headless) mode. Runs as a background driver.\n";
-    std::cout << "  -m             Minimized mode. Launches game and hides WoWpadX in tray.\n";
-    std::cout << "  -k             Keep WoWpadX running even after the game process exits.\n\n";
+    std::cout << "  -m             Minimized mode. Launches game and hides AzerothPad HD in tray.\n";
+    std::cout << "  -k             Keep AzerothPad HD running even after the game process exits.\n\n";
     std::cout << "General:\n";
     std::cout << "  -v             Display current version information.\n";
     std::cout << "  -h, --help     Show this help documentation.\n";
@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
     for (int i = 1; i < argc; ++i) args << argv[i];
 
     // Single Instance & IPC Command Check
-    const wchar_t* mutexName = L"Global\\3F9E2252-6837-4FBA-9A1B-7A87EB150F6C";
+    const wchar_t* mutexName = L"Global\\8C1D7E44-2B9A-4F3E-A6D1-5E0B9C7F2A13";
     HANDLE hMutex = CreateMutexW(NULL, FALSE, mutexName);
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         if (args.contains("--stop")) {
@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
             }
             return 0;
         }
-        MessageBoxW(nullptr, L"Another instance of WoWpadX is already open", L"Already running", MB_ICONERROR | MB_OK);
+        MessageBoxW(nullptr, L"Another instance of AzerothPad HD is already open", L"Already running", MB_ICONERROR | MB_OK);
         return 0;
     }
 
@@ -156,7 +156,7 @@ int main(int argc, char* argv[])
     if (args.contains("-v")) {
         if (AttachConsole(ATTACH_PARENT_PROCESS)) {
             FILE* fp; freopen_s(&fp, "CONOUT$", "w", stdout);
-            std::cout << "WoWpadX Version: " << APP_VERSION.toStdString() << std::endl;
+            std::cout << "AzerothPad HD Version: " << APP_VERSION.toStdString() << std::endl;
             FreeConsole();
         }
         return 0;
@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
         QProcess* gameProcess = new QProcess(&app);
         if (!args.contains("-k")) {
             QObject::connect(gameProcess, &QProcess::finished, [&]() {
-                Log::writeLine("Game exited. Closing WoWpadX.");
+                Log::writeLine("Game exited. Closing AzerothPad HD.");
                 app.quit();
             });
         }

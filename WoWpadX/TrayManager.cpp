@@ -18,7 +18,7 @@ void TrayManager::setMainWindow(QWindow* window) {
 void TrayManager::minimizeToTray() {
     if (mainWindow) {
         mainWindow->hide();
-        showTrayMessage("Minimized", "WoWpadX is running in the system tray.");
+        showTrayMessage("Minimized", "AzerothPad HD is running in the system tray.");
     }
 }
 
@@ -81,13 +81,13 @@ void TrayManager::createTrayIcon() {
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_USER + 1;
     nid.hIcon = hIcon;
-    wcscpy_s(nid.szTip, L"WoWpadX");
+    wcscpy_s(nid.szTip, L"AzerothPad HD");
 
     Shell_NotifyIcon(NIM_ADD, &nid);
 
     // Create context menu
     hMenu = CreatePopupMenu();
-    InsertMenu(hMenu, 0, MF_BYPOSITION | MF_STRING, 1, L"WoWpadX");
+    InsertMenu(hMenu, 0, MF_BYPOSITION | MF_STRING, 1, L"AzerothPad HD");
     InsertMenu(hMenu, 1, MF_BYPOSITION | MF_SEPARATOR, 0, nullptr);
     InsertMenu(hMenu, 2, MF_BYPOSITION | MF_STRING, 2, L"Quit");
 }

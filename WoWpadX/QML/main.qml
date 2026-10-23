@@ -9,7 +9,7 @@ ApplicationWindow {
     width: 300
     height: 550
     visible: true
-    title: "WoWpadXx"
+    title: "AzerothPad HD"
     flags: Qt.Window | Qt.FramelessWindowHint
     Material.theme: Material.Dark
     Material.primary: Material.DeepPurple
