@@ -28,7 +28,7 @@ jobs:
           "SDL3_DIR=$PWD\sdl\SDL3-$env:SDL_VERSION\cmake" | Out-File $env:GITHUB_ENV -Append
 
       - name: Configure
-        run: cmake -S WoWpadX -B build -G "Visual Studio 17 2022" -A x64
+        run: cmake -S WoWpadX -B build -A x64
 
       - name: Build
         run: cmake --build build --config Release
