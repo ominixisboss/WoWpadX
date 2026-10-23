@@ -1,0 +1,50 @@
+name: Build AzerothPad HD (Windows)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      SDL_VERSION: 3.2.18
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.9.1
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: Download SDL3
+        shell: pwsh
+        run: |
+          $url = "https://github.com/libsdl-org/SDL/releases/download/release-$env:SDL_VERSION/SDL3-devel-$env:SDL_VERSION-VC.zip"
+          Invoke-WebRequest $url -OutFile sdl.zip
+          Expand-Archive sdl.zip -DestinationPath sdl
+          "SDL3_DIR=$PWD\sdl\SDL3-$env:SDL_VERSION\cmake" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Configure
+        run: cmake -S WoWpadX -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "dist\AzerothPadHD"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item build\Release\AzerothPadHD.exe $out
+          Copy-Item "sdl\SDL3-$env:SDL_VERSION\lib\x64\SDL3.dll" $out
+          windeployqt --release --qmldir WoWpadX\QML "$out\AzerothPadHD.exe"
+          Copy-Item README.md $out
+          Copy-Item Docs\PixelBridge.md $out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AzerothPadHD-win64
+          path: dist/AzerothPadHD
