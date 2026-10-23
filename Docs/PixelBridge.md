@@ -27,7 +27,7 @@ To use this feature, the Pixel Bridge feature must be synchronized between the W
 1. Open your game and ensure it is set to **Windowed** or **Windowed Maximized** mode.  
 2. Ensure the **ConsolePortLK** addon is loaded.
 3. Go to ConsolePortLK settings page and activate the experimental Pixel Bridge feature.
-3. Once activated, a tiny **Blinking Beacon** (Magenta/Black) will appear at the top-left corner of your game window.f
+3. Once activated, a tiny **Blinking Beacon** (Magenta/Black) will appear at the top-left corner of your game window.
 4. If the beacon is visible, WoWpadX will be able to synchronize with the client.
 
 ## **Technical Data Layout**
@@ -37,5 +37,13 @@ This feature works by encoding game data into a single RGB pixel. The WoWpadX ap
 | Channel | Data Encoded | Purpose |
 | :---- | :---- | :---- |
 | **Red** | Player Health (0-255) | Triggers Controller Rumble/Vibration on low HP. |
-| **Green** | Movement & Mouselook Bits | Logic for Auto-Walk and Cursor centering |
+| **Green** | Movement & Mouselook Bits (`state * 32 + 16`) | Logic for Auto-Walk and Cursor centering |
 | **Blue** | AOE State | Handles AOE state only |
+
+### HD clients (3.3.5a HD packs, DXVK, high DPI)
+
+* The beacon and data blocks are each 6x6 physical pixels, sized independently of resolution and UI scale.
+* WoWpadX measures the beacon and samples the **center** of each block, so DPI scaling or filtering at the edges doesn't matter.
+* Capture reads the composited desktop (works with DXVK `d3d9.dll` / flip-model), falling back to the window DC.
+* Keep the top-left corner of the game window unobstructed and use Windowed / Windowed Maximized mode.
+* Older ConsolePortLK builds (raw 0-7 green values) are still decoded.

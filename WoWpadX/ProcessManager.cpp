@@ -22,25 +22,46 @@ QMutex ProcessManager::m_mutex;
 std::function<void(qint64, const QString&)> ProcessManager::onGameProcessFound = nullptr;
 std::function<void()> ProcessManager::onGameProcessExited = nullptr;
 
-static HWND tempWnd = nullptr;
+struct WindowSearch {
+    DWORD pid;
+    HWND best;
+    long bestArea;
+    bool bestIsGx;
+};
 
+// Picks the real game window: visible, top-level, prefers WoW's GxWindowClass*
+// (helper/IME/launcher windows owned by the same process are skipped)
 BOOL CALLBACK EnumWindowsCallback(HWND handle, LPARAM lParam)
 {
+    auto* search = reinterpret_cast<WindowSearch*>(lParam);
+
     DWORD wndProcId = 0;
     GetWindowThreadProcessId(handle, &wndProcId);
-
-    if (lParam != wndProcId)
+    if (wndProcId != search->pid || !IsWindowVisible(handle) || GetWindow(handle, GW_OWNER))
         return TRUE;
 
-    tempWnd = handle;
-    return FALSE;
+    wchar_t className[64] = {};
+    GetClassNameW(handle, className, 64);
+    bool isGx = wcsncmp(className, L"GxWindowClass", 13) == 0;
+
+    RECT rc = {};
+    GetClientRect(handle, &rc);
+    long area = rc.right * rc.bottom;
+
+    if (!search->best || (isGx && !search->bestIsGx) ||
+        (isGx == search->bestIsGx && area > search->bestArea)) {
+        search->best = handle;
+        search->bestArea = area;
+        search->bestIsGx = isGx;
+    }
+    return TRUE;
 }
 
 HWND GetProcessWindow(qint64 pid)
 {
-    tempWnd = nullptr;
-    EnumWindows(EnumWindowsCallback, pid);
-    return tempWnd;
+    WindowSearch search = { (DWORD)pid, nullptr, 0, false };
+    EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&search));
+    return search.best;
 }
 
 void ProcessManager::start()

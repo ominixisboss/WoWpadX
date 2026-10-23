@@ -1,5 +1,7 @@
 #include "WoWReader.h"
 #include "Log.h"
+#include <algorithm>
+#include <QString>
 
 HWND WoWReader::windowHandle = nullptr;
 std::atomic<uint32_t> WoWReader::atomicColor(0);
@@ -8,6 +10,7 @@ std::atomic<bool> WoWReader::focused(false);
 POINT WoWReader::beaconOffset = { 0, 0 };
 POINT WoWReader::screenCenter = { 0, 0 };
 POINT WoWReader::beaconCheckPoint = { 0, 0 };
+std::atomic<bool> WoWReader::useWindowDC(false);
 std::thread WoWReader::workerThread;
 std::atomic<bool> WoWReader::threadRunning(false);
 std::chrono::steady_clock::time_point WoWReader::lastSeenBeacon = std::chrono::steady_clock::now();
@@ -129,96 +132,148 @@ void WoWReader::threadLoop() {
     }
 }
 
+// Pixels are stored as 0x00RRGGBB (DIB order), not COLORREF
+static inline uint8_t pxR(uint32_t c) { return (c >> 16) & 0xFF; }
+static inline uint8_t pxG(uint32_t c) { return (c >> 8) & 0xFF; }
+static inline uint8_t pxB(uint32_t c) { return c & 0xFF; }
+
+static inline bool isMagentaPx(uint32_t c) { return pxR(c) > 200 && pxG(c) < 60 && pxB(c) > 200; }
+static inline bool isBlackPx(uint32_t c) { return pxR(c) < 30 && pxG(c) < 30 && pxB(c) < 30; }
+
+// Captures a region of the game's client area into 'out' (0x00RRGGBB, top-down).
+// By default it reads the composited desktop (GetDC(NULL)), which works with DXVK,
+// flip-model presentation and DPI-virtualized windows used by most 3.3.5a HD setups.
+// The window DC path is kept as a fallback for older setups.
+bool WoWReader::captureClient(int x, int y, int w, int h, bool fromWindowDC, std::vector<uint32_t>& out) {
+    if (w <= 0 || h <= 0) return false;
+
+    int srcX = x, srcY = y;
+    HDC hSrc = nullptr;
+    if (fromWindowDC) {
+        hSrc = GetDC(windowHandle);
+    }
+    else {
+        POINT origin = { x, y };
+        if (!ClientToScreen(windowHandle, &origin)) return false;
+        srcX = origin.x;
+        srcY = origin.y;
+        hSrc = GetDC(nullptr);
+    }
+    if (!hSrc) return false;
+
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = w;
+    bmi.bmiHeader.biHeight = -h; // top-down
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    void* bits = nullptr;
+    HDC hDC = CreateCompatibleDC(hSrc);
+    HBITMAP hBitmap = CreateDIBSection(hDC, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    bool ok = false;
+
+    if (hDC && hBitmap && bits) {
+        HGDIOBJ oldObj = SelectObject(hDC, hBitmap);
+        if (BitBlt(hDC, 0, 0, w, h, hSrc, srcX, srcY, SRCCOPY | CAPTUREBLT)) {
+            GdiFlush();
+            const uint32_t* px = static_cast<const uint32_t*>(bits);
+            out.assign(px, px + (size_t)w * h);
+            for (auto& c : out) c &= 0x00FFFFFF;
+            ok = true;
+        }
+        SelectObject(hDC, oldObj);
+    }
+
+    if (hBitmap) DeleteObject(hBitmap);
+    if (hDC) DeleteDC(hDC);
+    ReleaseDC(fromWindowDC ? windowHandle : nullptr, hSrc);
+    return ok;
+}
+
 bool WoWReader::findBeacon() {
     if (!windowHandle || !IsWindow(windowHandle) || IsHungAppWindow(windowHandle)) return false;
 
-    HDC hScreen = GetDC(windowHandle);
-    HDC hDC = CreateCompatibleDC(hScreen);
-    HBITMAP hBitmap = CreateCompatibleBitmap(hScreen, 100, 100);
-    HGDIOBJ oldObj = SelectObject(hDC, hBitmap);
+    RECT rc;
+    if (!GetClientRect(windowHandle, &rc)) return false;
 
-    BitBlt(hDC, 0, 0, 100, 100, hScreen, 0, 0, SRCCOPY);
+    // HD resolutions / UI scale make the beacon bigger, so search a larger area
+    const int scanW = (std::min)((int)rc.right, 256);
+    const int scanH = (std::min)((int)rc.bottom, 256);
 
-    bool found = false;
-    for (int y = 0; y < 100 && !found; y++) {
-        for (int x = 0; x < 100; x++) {
-            COLORREF check = GetPixel(hDC, x, y);
+    // Try screen capture first, then the legacy window DC capture
+    for (int attempt = 0; attempt < 2; attempt++) {
+        bool fromWindowDC = (attempt == 1);
+        std::vector<uint32_t> img;
+        if (!captureClient(0, 0, scanW, scanH, fromWindowDC, img)) continue;
 
-            // 1. We found the START of the Beacon (Magenta)
-            if (GetRValue(check) > 240 && GetGValue(check) < 20 && GetBValue(check) > 240) {
-                int walkX = x;
+        auto at = [&](int x, int y) { return img[(size_t)y * scanW + x]; };
 
-                // 2. WALK RIGHT through the magenta until it ends
-                // This bypasses any size issues caused by Windowed vs Fullscreen scaling
-                while (walkX < 98) {
-                    COLORREF walkColor = GetPixel(hDC, walkX, y);
-                    bool stillMagenta = (GetRValue(walkColor) > 200 && GetBValue(walkColor) > 200);
+        for (int y = 0; y < scanH; y++) {
+            for (int x = 0; x < scanW; x++) {
+                if (!isMagentaPx(at(x, y))) continue;
 
-                    if (!stillMagenta) {
-                        // 3. We are now at the FIRST pixel of the Data block.
-                        // We add +1 or +2 just to be deep inside the data block for safety.
-                        beaconOffset.x = walkX + 1;
-                        beaconOffset.y = y;
+                // Measure the magenta block so we can sample the center of each block,
+                // which is immune to edge blending from scaling/filtering.
+                int bw = 0;
+                while (x + bw < scanW && isMagentaPx(at(x + bw, y))) bw++;
+                int bh = 0;
+                while (y + bh < scanH && isMagentaPx(at(x, y + bh))) bh++;
 
-                        // We also need a point to check the Beacon state in sampleData.
-                        // We use the 'x' coordinate where we first found Magenta.
-                        beaconCheckPoint.x = x;
+                if (bw < 1 || bh < 1) continue;
 
-                        found = true;
-                        break;
-                    }
-                    walkX++;
-                }
-                if (found) break;
+                POINT beacon = { x + bw / 2, y + bh / 2 };
+                // Data block is the same width, directly right of the beacon
+                POINT data = { x + bw + bw / 2, y + bh / 2 };
+                if (data.x >= rc.right) continue;
+
+                beaconCheckPoint = beacon;
+                beaconOffset = data;
+                useWindowDC = fromWindowDC;
+
+                Log::writeLine(QString("Pixel Bridge: Beacon %1x%2 at (%3,%4), capture=%5")
+                    .arg(bw).arg(bh).arg(x).arg(y)
+                    .arg(fromWindowDC ? "window" : "screen"));
+                return true;
             }
         }
     }
-
-    SelectObject(hDC, oldObj);
-    DeleteObject(hBitmap);
-    DeleteDC(hDC);
-    ReleaseDC(windowHandle, hScreen);
-    return found;
+    return false;
 }
 
 void WoWReader::sampleData() {
     if (IsHungAppWindow(windowHandle)) return;
 
-    HDC hScreen = GetDC(windowHandle);
-    HDC hDC = CreateCompatibleDC(hScreen);
+    // Capture one row spanning beacon center -> data center
+    const int x0 = beaconCheckPoint.x;
+    const int w = beaconOffset.x - beaconCheckPoint.x + 1;
+    std::vector<uint32_t> row;
+    if (!captureClient(x0, beaconCheckPoint.y, w, 1, useWindowDC.load(), row)) return;
 
-    // Snapping a small area that encompasses the start of magenta and the data pixel
-    HBITMAP hBitmap = CreateCompatibleBitmap(hScreen, 40, 4);
-    HGDIOBJ oldObj = SelectObject(hDC, hBitmap);
-
-    // Capture starting at our beaconCheckPoint
-    BitBlt(hDC, 0, 0, 40, 4, hScreen, beaconCheckPoint.x, beaconOffset.y, SRCCOPY);
-
-    // 1. Verify Beacon (Relative x=0 because we started the capture there)
-    COLORREF bc = GetPixel(hDC, 0, 0);
-    bool isMagenta = (GetRValue(bc) > 200 && GetBValue(bc) > 200);
-    bool isBlack = (GetRValue(bc) < 20 && GetGValue(bc) < 20 && GetBValue(bc) < 20);
-
-    if (isMagenta || isBlack) {
+    uint32_t bc = row.front();
+    if (isMagentaPx(bc) || isBlackPx(bc)) {
         lastSeenBeacon = std::chrono::steady_clock::now();
-
-        // 2. Read Data (Relative x is the distance from start of magenta to data)
-        int relativeDataX = beaconOffset.x - beaconCheckPoint.x;
-        COLORREF freshColor = GetPixel(hDC, relativeDataX, 0);
-        atomicColor.store((uint32_t)freshColor);
+        uint32_t c = row.back();
+        // Keep the original COLORREF layout used by the interpreters
+        atomicColor.store((uint32_t)RGB(pxR(c), pxG(c), pxB(c)));
     }
+}
 
-    SelectObject(hDC, oldObj);
-    DeleteObject(hBitmap);
-    DeleteDC(hDC);
-    ReleaseDC(windowHandle, hScreen);
+// Green channel state bits.
+// New ConsolePortLK encodes bits in the high part of the channel (state * 32 + 16),
+// which survives gamma/dithering/post-processing. Old builds sent the raw value (0-7).
+uint8_t WoWReader::decodeStateBits(uint32_t color) {
+    uint8_t g = GetGValue(color);
+    if (g < 12) return g & 0x07;     // legacy encoding
+    return (g >> 5) & 0x07;
 }
 
 // Lock-free interpreters for the InputWatcher
 bool WoWReader::readGameState() { return synced.load() && (atomicColor.load() != 0); }
-bool WoWReader::readMouselook() { return (GetGValue(atomicColor.load()) & 2); }
-int  WoWReader::readMovementState() { return (GetGValue(atomicColor.load()) & 1) ? 1 : 0; }
-bool WoWReader::readAoeState() { return GetBValue(atomicColor.load()) > 200; }
+bool WoWReader::readMouselook() { return (decodeStateBits(atomicColor.load()) & 2) != 0; }
+int  WoWReader::readMovementState() { return (decodeStateBits(atomicColor.load()) & 1) ? 1 : 0; }
+bool WoWReader::readAoeState() { return GetBValue(atomicColor.load()) > 127; }
 std::pair<long, long> WoWReader::readPlayerHealth() {
     uint32_t val = atomicColor.load();
     return { (long)GetRValue(val), 255 };

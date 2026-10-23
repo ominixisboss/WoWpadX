@@ -6,6 +6,8 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <vector>
+#include <cstdint>
 
 class WoWReader {
 public:
@@ -34,8 +36,9 @@ private:
     static std::atomic<uint32_t> atomicColor;
     static std::atomic<bool> synced;
     static std::atomic<bool> focused;
-    static POINT beaconOffset;
-    static POINT beaconCheckPoint;
+    static POINT beaconOffset;      // Data block center (client coords)
+    static POINT beaconCheckPoint;  // Beacon block center (client coords)
+    static std::atomic<bool> useWindowDC; // Fallback capture path for clients where screen capture fails
     static POINT screenCenter;
 
     static std::thread workerThread;
@@ -47,4 +50,6 @@ private:
     static bool findBeacon();
     static void sampleData();
     static void updateWindowMetrics();
+    static bool captureClient(int x, int y, int w, int h, bool fromWindowDC, std::vector<uint32_t>& out);
+    static uint8_t decodeStateBits(uint32_t color);
 };
