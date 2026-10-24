@@ -22,6 +22,52 @@
 
 ControllerManager* ControllerManager::m_instance = nullptr;
 
+#include <windows.h>
+#include <TlHelp32.h>
+
+// DSX (DualSenseX) support.
+// DSX reads the DualSense itself and exposes a virtual Xbox 360 or DualShock 4
+// controller. When it's active we leave the real DualSense to DSX (so we don't
+// fight it over the lightbar, triggers and rumble) and use the virtual pad.
+static bool s_dsxActive = false;
+
+static bool IsDsxRunning()
+{
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
+
+    PROCESSENTRY32W entry = {};
+    entry.dwSize = sizeof(entry);
+    bool found = false;
+    if (Process32FirstW(snapshot, &entry)) {
+        do {
+            if (_wcsicmp(entry.szExeFile, L"DSX.exe") == 0 ||
+                _wcsicmp(entry.szExeFile, L"DualSenseX.exe") == 0) {
+                found = true;
+                break;
+            }
+        } while (Process32NextW(snapshot, &entry));
+    }
+    CloseHandle(snapshot);
+    return found;
+}
+
+// Picks the controller to use when none is selected.
+// With DSX active, prefer its virtual controller over the raw DualSense.
+static SDL_Gamepad* PickPreferredController(const std::vector<SDL_Gamepad*>& pads)
+{
+    if (pads.empty()) return nullptr;
+    if (s_dsxActive) {
+        for (auto* pad : pads) {
+            if (SDL_GetGamepadType(pad) != SDL_GAMEPAD_TYPE_PS5)
+                return pad;
+        }
+    }
+    return pads.front();
+}
+
+bool ControllerManager::IsDsxActive() { return s_dsxActive; }
+
 ControllerManager* ControllerManager::instance() {
     if (!m_instance)
         m_instance = new ControllerManager();
@@ -60,35 +106,7 @@ void ControllerManager::HandleEvents() {
             }
         }
 
-        if (!AppSettings::instance()->enableTouchpad()) continue;
-
-        if (e.type == SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION) {
-            if (e.gtouchpad.touchpad == 0) { // Most pads only have 1 touchpad (index 0)
-                // SDL3 normalized coordinates are 0.0 to 1.0
-                // We store the delta to move the cursor in InputMapper
-                static float lastX = 0, lastY = 0;
-
-                if (e.gtouchpad.pressure > 0) {
-                    float dx = (e.gtouchpad.x - lastX) * 1920.0f; // Scale to typical screen width
-                    float dy = (e.gtouchpad.y - lastY) * 1080.0f;
-
-                    // Store these in a thread-safe way for InputMapper to read
-                    m_touchDeltaX = dx;
-                    m_touchDeltaY = dy;
-                }
-                lastX = e.gtouchpad.x;
-                lastY = e.gtouchpad.y;
-            }
-        }
-        else if (e.type == SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN) {
-            // Check if user clicked the left or right side of the pad
-            bool isLeft = e.gtouchpad.x < 0.5f;
-            m_touchButtonDown = true;
-            m_touchSideLeft = isLeft;
-        }
-        else if (e.type == SDL_EVENT_GAMEPAD_TOUCHPAD_UP) {
-            m_touchButtonDown = false;
-        }
+        // Touchpad input is polled directly by InputMapper (see UpdateTouchpad)
     }
 }
 
@@ -100,10 +118,11 @@ QString ControllerManager::GetButtonIcon(GamepadBinding button)
 
     if (this->activeController != NULL)
     {
-        name = SDL_GetGamepadName(activeController);
+        const char* padName = SDL_GetGamepadName(activeController);
+        name = padName ? padName : "";
     }
 
-    else if (name.contains("DualShock", Qt::CaseInsensitive) || name.contains("DualSense") || name.contains("DS4") || name.contains("DS3") || name.contains("PS4") || name.contains("Playstation") || name.contains("PS3"))
+    if (name.contains("DualShock", Qt::CaseInsensitive) || name.contains("DualSense") || name.contains("DS4") || name.contains("DS3") || name.contains("PS4") || name.contains("Playstation") || name.contains("PS3"))
         type = "DS";
     else if (name.contains("Xbox", Qt::CaseInsensitive))
         type = "Xbox";
@@ -174,10 +193,11 @@ QString ControllerManager::GetButtonName(GamepadBinding button)
 
     if (this->activeController != NULL)
     {
-        name = SDL_GetGamepadName(activeController);
+        const char* padName = SDL_GetGamepadName(activeController);
+        name = padName ? padName : "";
     }
 
-    else if (name.contains("DualShock", Qt::CaseInsensitive) || name.contains("DualSense") || name.contains("DS4") || name.contains("DS3") || name.contains("PS4") || name.contains("Playstation") || name.contains("PS3"))
+    if (name.contains("DualShock", Qt::CaseInsensitive) || name.contains("DualSense") || name.contains("DS4") || name.contains("DS3") || name.contains("PS4") || name.contains("Playstation") || name.contains("PS3"))
         type = "DS";
     else if (name.contains("Xbox", Qt::CaseInsensitive))
         type = "Xbox";
@@ -274,6 +294,14 @@ void ControllerManager::startWatcher() {
     if (threadRunning) return;
 
     SDL_SetHint("SDL_HINT_NO_SIGNAL_HANDLERS", "1");
+
+    int dsxMode = AppSettings::instance()->dsxMode(); // 0 = auto, 1 = always, 2 = never
+    s_dsxActive = (dsxMode == 1) || (dsxMode == 0 && IsDsxRunning());
+    if (s_dsxActive) {
+        // Don't open the DualSense through HIDAPI; DSX owns it
+        SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS5, "0");
+        Log::writeLine("DSX detected: using its virtual controller. Set DSX to DualShock 4 emulation to use the touchpad.");
+    }
     SDL_Init(SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC);
 
     threadRunning = true; 
@@ -306,8 +334,8 @@ void ControllerManager::ControllerWatcher() {
             HandleEvents();
 
             if (!activeController && !controllers.empty()) {
-                SDL_Gamepad* first = controllers.front();
-                SetController(first, SDL_GetGamepadID(first));
+                SDL_Gamepad* preferred = PickPreferredController(controllers);
+                SetController(preferred, SDL_GetGamepadID(preferred));
             }
 
             if (AppSettings::instance()->enableOverlay() && AppSettings::instance()->enableOverlayBattery() && activeController) {

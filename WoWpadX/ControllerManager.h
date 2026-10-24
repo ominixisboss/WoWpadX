@@ -48,6 +48,7 @@ public:
     SDL_Gamepad* getActiveController();
     const std::vector<SDL_Gamepad*>& getControllers();
     bool Rumble(uint16_t low_freq, uint16_t high_freq, uint32_t duration_ms);
+    static bool IsDsxActive();
 
 
 signals:

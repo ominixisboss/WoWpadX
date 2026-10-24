@@ -222,46 +222,69 @@ namespace InputMapper
         SendInput(1, &input, sizeof(INPUT));
     }
 
+    // Touchpad: finger movement moves the mouse; a physical click on the
+    // left or right half acts as its own button.
+    //  touchpadMode 0 = left/right mouse click
+    //  touchpadMode 1 = Share/Options keys (legacy)
+    //  touchpadMode 2 = separate buttons (sent as Left/Right Paddle 1 keys,
+    //                   i.e. LG/RG in ConsolePortLK)
     void UpdateTouchpad() {
-        if (!AppSettings::instance()->enableTouchpad()) return;
-        
-        if(AppSettings::instance()->memoryTouchpadCursorOnly() && WoWReader::isSynced())
-            if(WoWReader::readMouselook())
-                return;
-
-        auto cm = ControllerManager::instance();
-
-        float dx = cm->m_touchDeltaX;
-        float dy = cm->m_touchDeltaY;
-
-        float deadzone = 1.5f;
-
-        if (std::abs(dx) > deadzone || std::abs(dy) > deadzone) {
-            INPUT input = {};
-            input.type = INPUT_MOUSE;
-            input.mi.dx = static_cast<LONG>(dx);
-            input.mi.dy = static_cast<LONG>(dy);
-            input.mi.dwFlags = MOUSEEVENTF_MOVE;
-            SendInput(1, &input, sizeof(INPUT));
-        }
-
-        cm->m_touchDeltaX = 0;
-        cm->m_touchDeltaY = 0;
-
         static bool wasDown = false;
-        bool isDown = cm->m_touchButtonDown;
+        static bool clickLeft = true;
+        static bool hadFinger = false;
+        static float lastX = 0.f, lastY = 0.f;
 
-        if (isDown != wasDown) {
-            int mode = AppSettings::instance()->touchpadMode(); // 0 = Mouse, 1 = Binds
-            if (mode == 0) {
-                SendMouse(cm->m_touchSideLeft, isDown); // Left/Right mouse clicks
-            }
-            else {
-                GamepadBinding bind = cm->m_touchSideLeft ? GamepadBinding::Back : GamepadBinding::Start;
-                SendKey(BindManager::getKey(bind), isDown);
-            }
-            wasDown = isDown;
+        if (!AppSettings::instance()->enableTouchpad() || SDL_GetNumGamepadTouchpads(gamepad) < 1) {
+            hadFinger = false;
+            return;
         }
+
+        bool fingerDown = false;
+        float x = 0.f, y = 0.f, pressure = 0.f;
+        SDL_GetGamepadTouchpadFinger(gamepad, 0, 0, &fingerDown, &x, &y, &pressure);
+
+        // --- Cursor movement ---
+        bool blockCursor = AppSettings::instance()->memoryTouchpadCursorOnly() &&
+            WoWReader::isSynced() && WoWReader::readMouselook();
+
+        if (fingerDown && hadFinger && !blockCursor) {
+            float dx = (x - lastX) * 1920.0f; // Scale to typical screen width
+            float dy = (y - lastY) * 1080.0f;
+            const float deadzone = 1.5f;
+            if (std::abs(dx) > deadzone || std::abs(dy) > deadzone) {
+                INPUT input = {};
+                input.type = INPUT_MOUSE;
+                input.mi.dx = static_cast<LONG>(dx);
+                input.mi.dy = static_cast<LONG>(dy);
+                input.mi.dwFlags = MOUSEEVENTF_MOVE;
+                SendInput(1, &input, sizeof(INPUT));
+            }
+        }
+        if (fingerDown) {
+            lastX = x;
+            lastY = y;
+        }
+        hadFinger = fingerDown;
+
+        // --- Click (left / right half) ---
+        bool isDown = SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_TOUCHPAD);
+        if (isDown == wasDown) return;
+
+        if (isDown)
+            clickLeft = (fingerDown ? x : lastX) < 0.5f; // side is locked until release
+
+        switch (AppSettings::instance()->touchpadMode()) {
+        case 0:
+            SendMouse(clickLeft, isDown);
+            break;
+        case 1:
+            SendKey(BindManager::getKey(clickLeft ? GamepadBinding::Back : GamepadBinding::Start), isDown);
+            break;
+        default:
+            SendKey(BindManager::getKey(clickLeft ? GamepadBinding::LeftPaddle1 : GamepadBinding::RightPaddle1), isDown);
+            break;
+        }
+        wasDown = isDown;
     }
 
 
@@ -395,6 +418,20 @@ namespace InputMapper
 
     void ProcessInput(GamepadBinding button, bool state)
     {
+        // Stick clicks as separate buttons (L3 -> Left Paddle 2, R3 -> Right Paddle 2,
+        // i.e. the second grip slots in ConsolePortLK) instead of mouse clicks.
+        if ((button == GamepadBinding::LeftStick || button == GamepadBinding::RightStick) &&
+            AppSettings::instance()->stickClickMode() == 1)
+        {
+            if (keyStates[button] != state) {
+                GamepadBinding target = (button == GamepadBinding::LeftStick)
+                    ? GamepadBinding::LeftPaddle2 : GamepadBinding::RightPaddle2;
+                SendKey(BindManager::getKey(target), state);
+            }
+            keyStates[button] = state;
+            return;
+        }
+
         if (button == GamepadBinding::LeftStick)
             SendMouse(true, state);
         else if (button == GamepadBinding::RightStick)
@@ -413,6 +450,7 @@ namespace InputMapper
     {
         for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
             auto sdlBtn = static_cast<SDL_GamepadButton>(b);
+            if (sdlBtn == SDL_GAMEPAD_BUTTON_TOUCHPAD) continue; // handled in UpdateTouchpad
             auto binding = static_cast<GamepadBinding>(b); // Enum mapping matches SDL button ordering
 
             bool pressed = SDL_GetGamepadButton(gamepad, sdlBtn);

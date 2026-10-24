@@ -111,11 +111,54 @@ Item {
 
             ComboBox {
                 enabled: AppSettings.enableTouchpad
-                model: ["Left/Right Click", "Share/Options"]
+                model: ["Left/Right Click", "Share/Options", "Separate buttons (LG/RG)"]
                 currentIndex: AppSettings.touchpadMode
                 onCurrentIndexChanged: AppSettings.touchpadMode = currentIndex
-                Layout.preferredWidth: 140
+                Layout.preferredWidth: 200
 
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Separate buttons: clicking the left half of the touchpad is LG, the right half is RG"
+            }
+        }
+
+        // Stick clicks
+        Label { text: "Stick Buttons (L3 / R3)"; font.pixelSize: 16 }
+        Rectangle { height: 1; width: parent.width - 12; color: "#ccc" }
+
+        RowLayout {
+            spacing: 10
+            Label { text: "L3 / R3" }
+
+            ComboBox {
+                model: ["Left/Right Click", "Separate buttons (LG2/RG2)"]
+                currentIndex: AppSettings.stickClickMode
+                onCurrentIndexChanged: AppSettings.stickClickMode = currentIndex
+                Layout.preferredWidth: 200
+
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "Separate buttons: L3 and R3 become their own bindable buttons (second grip slots in ConsolePortLK)"
+            }
+        }
+
+        // DSX
+        Label { text: "DSX (DualSenseX)"; font.pixelSize: 16 }
+        Rectangle { height: 1; width: parent.width - 12; color: "#ccc" }
+
+        RowLayout {
+            spacing: 10
+            Label { text: "DSX mode" }
+
+            ComboBox {
+                model: ["Auto-detect", "Always on", "Off"]
+                currentIndex: AppSettings.dsxMode
+                onCurrentIndexChanged: AppSettings.dsxMode = currentIndex
+                Layout.preferredWidth: 200
+
+                ToolTip.visible: hovered
+                ToolTip.delay: 500
+                ToolTip.text: "When DSX is running, use its virtual controller and leave the DualSense to DSX. Takes effect after restarting AzerothPad HD."
             }
         }
 

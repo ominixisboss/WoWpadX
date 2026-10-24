@@ -68,6 +68,8 @@ DEFINE_SETTING(setNotificationV, notificationV, int)
 DEFINE_SETTING(setEnableTouchpad, enableTouchpad, bool)
 DEFINE_SETTING(setMemoryTouchpadCursorOnly, memoryTouchpadCursorOnly, bool)
 DEFINE_SETTING(setTouchpadMode, touchpadMode, int)
+DEFINE_SETTING(setStickClickMode, stickClickMode, int)
+DEFINE_SETTING(setDsxMode, dsxMode, int)
 DEFINE_SETTING(setMemoryAoeConfirm, memoryAoeConfirm, int)
 DEFINE_SETTING(setMemoryAoeCancel, memoryAoeCancel, int)
 DEFINE_SETTING(setMemoryInvertTurn, memoryInvertTurn, bool)
@@ -133,6 +135,8 @@ void AppSettings::load() {
     setEnableTouchpad(obj["enableTouchpad"].toBool());
     setMemoryTouchpadCursorOnly(obj["memoryTouchpadCursorOnly"].toBool());
     setTouchpadMode(obj["touchpadMode"].toInt());
+    setStickClickMode(obj["stickClickMode"].toInt());
+    setDsxMode(obj["dsxMode"].toInt());
     setMemoryAoeConfirm(obj["memoryAoeConfirm"].toInt());
     setMemoryAoeCancel(obj["memoryAoeCancel"].toInt());
     setMemoryInvertTurn(obj["memoryInvertTurn"].toBool());
@@ -194,6 +198,8 @@ void AppSettings::save() {
     obj["enableTouchpad"] = m_enableTouchpad;
     obj["memoryTouchpadCursorOnly"] = m_memoryTouchpadCursorOnly;
     obj["touchpadMode"] = m_touchpadMode;
+    obj["stickClickMode"] = m_stickClickMode;
+    obj["dsxMode"] = m_dsxMode;
     obj["memoryAoeConfirm"] = m_memoryAoeConfirm;
     obj["memoryAoeCancel"] = m_memoryAoeCancel;
     obj["memoryInvertTurn"] = m_memoryInvertTurn;
@@ -258,6 +264,8 @@ void AppSettings::reset() {
     setEnableTouchpad(def["enableTouchpad"].toBool());
     setMemoryTouchpadCursorOnly(def["memoryTouchpadCursorOnly"].toBool());
     setTouchpadMode(def["touchpadMode"].toInt());
+    setStickClickMode(def["stickClickMode"].toInt());
+    setDsxMode(def["dsxMode"].toInt());
     setMemoryAoeConfirm(def["memoryAoeConfirm"].toInt());
     setMemoryAoeCancel(def["memoryAoeCancel"].toInt());
     setMemoryInvertTurn(def["memoryInvertTurn"].toBool());
@@ -316,6 +324,8 @@ QJsonObject AppSettings::defaultSettings() const {
         { "enableTouchpad", true },
         { "memoryTouchpadCursorOnly", false },
         { "touchpadMode", 0 },
+        { "stickClickMode", 0 },
+        { "dsxMode", 0 },
         { "memoryAoeConfirm", 0 },
         { "memoryAoeCancel", 1 },
         { "memoryInvertTurn", false },

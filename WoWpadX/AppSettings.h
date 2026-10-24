@@ -49,6 +49,8 @@ class AppSettings : public QObject {
         Q_PROPERTY(bool enableTouchpad READ enableTouchpad WRITE setEnableTouchpad NOTIFY enableTouchpadChanged)
         Q_PROPERTY(bool memoryTouchpadCursorOnly READ memoryTouchpadCursorOnly WRITE setMemoryTouchpadCursorOnly NOTIFY memoryTouchpadCursorOnlyChanged)
         Q_PROPERTY(int touchpadMode READ touchpadMode WRITE setTouchpadMode NOTIFY touchpadModeChanged)
+        Q_PROPERTY(int stickClickMode READ stickClickMode WRITE setStickClickMode NOTIFY stickClickModeChanged)
+        Q_PROPERTY(int dsxMode READ dsxMode WRITE setDsxMode NOTIFY dsxModeChanged)
         Q_PROPERTY(int memoryAoeConfirm READ memoryAoeConfirm WRITE setMemoryAoeConfirm NOTIFY memoryAoeConfirmChanged)
         Q_PROPERTY(int memoryAoeCancel READ memoryAoeCancel WRITE setMemoryAoeCancel NOTIFY memoryAoeCancelChanged)
         Q_PROPERTY(bool memoryInvertTurn READ memoryInvertTurn WRITE setMemoryInvertTurn NOTIFY memoryInvertTurnChanged)
@@ -103,6 +105,8 @@ public:
     DECLARE_SETTING(setEnableTouchpad, enableTouchpad, bool)
     DECLARE_SETTING(setMemoryTouchpadCursorOnly, memoryTouchpadCursorOnly, bool)
     DECLARE_SETTING(setTouchpadMode, touchpadMode, int)
+    DECLARE_SETTING(setStickClickMode, stickClickMode, int) // 0 = mouse clicks, 1 = bindable buttons
+    DECLARE_SETTING(setDsxMode, dsxMode, int)               // 0 = auto-detect DSX, 1 = always, 2 = never
     DECLARE_SETTING(setMemoryAoeConfirm, memoryAoeConfirm, int)
     DECLARE_SETTING(setMemoryAoeCancel, memoryAoeCancel, int)
     DECLARE_SETTING(setMemoryInvertTurn, memoryInvertTurn, bool)
@@ -159,6 +163,8 @@ signals:
     DECLARE_SIGNAL(enableTouchpad)
     DECLARE_SIGNAL(memoryTouchpadCursorOnly)
     DECLARE_SIGNAL(touchpadMode)
+    DECLARE_SIGNAL(stickClickMode)
+    DECLARE_SIGNAL(dsxMode)
     DECLARE_SIGNAL(memoryAoeConfirm)
     DECLARE_SIGNAL(memoryAoeCancel)
     DECLARE_SIGNAL(memoryInvertTurn)
@@ -212,6 +218,8 @@ private:
     bool m_enableTouchpad = true;
     bool m_memoryTouchpadCursorOnly = false;
     int m_touchpadMode = 0;
+    int m_stickClickMode = 0;
+    int m_dsxMode = 0;
     int m_memoryAoeConfirm = 0; // GamepadBindings::South
     int m_memoryAoeCancel = 1; // GamepadBindings::East
     bool m_memoryInvertTurn = false;
