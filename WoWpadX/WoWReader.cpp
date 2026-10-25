@@ -120,14 +120,17 @@ void WoWReader::threadLoop() {
                 }
             }
             else {
+                // sampleData() refreshes lastSeenBeacon only when the beacon is really there
                 sampleData();
-                lastSeenBeacon = now;
             }
         }
 
-        // 2. GLOBAL TIMEOUT (This runs even when Alt-Tabbed!)
-        // If we haven't successfully sampled data in 3 seconds, drop sync.
-        if (synced.load()) {
+        // 2. Timeout: if the beacon hasn't been seen for 3 seconds while the game
+        // is in focus, drop sync. Alt-tabbing keeps the last state instead of dropping it.
+        if (!focused.load()) {
+            lastSeenBeacon = now;
+        }
+        else if (synced.load()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastSeenBeacon).count();
             if (elapsed >= 3) {
                 synced = false;
