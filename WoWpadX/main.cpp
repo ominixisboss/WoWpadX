@@ -10,6 +10,9 @@
 #include <QLocalSocket>
 #include <iostream>
 #include <windows.h>
+#include <thread>
+#include <chrono>
+#include "Log.h"
 #include <atomic>
 
 #include "ProcessManager.h"
@@ -227,8 +230,18 @@ int main(int argc, char* argv[])
     QWindow* mainWindow = qobject_cast<QWindow*>(engine.rootObjects().first());
     tray.setMainWindow(mainWindow);
 
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&tray]() {
+        Log::writeLine("Closing AzerothPad HD...");
         AppSettings::instance()->save();
+        tray.removeTrayIcon();
+
+        // If a background thread hangs during cleanup, still make sure the
+        // process ends instead of lingering in Task Manager.
+        std::thread([]() {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            ExitProcess(0);
+        }).detach();
+
         InputMapper::Stop();
         ControllerManager::instance()->stopWatcher();
         ProcessManager::stop();
@@ -237,5 +250,8 @@ int main(int argc, char* argv[])
     if (args.contains("-m") && mainWindow) mainWindow->hide();
     else if (mainWindow) mainWindow->show();
 
-    return app.exec();
+    int exitCode = app.exec();
+
+    // Background threads (SDL, network, timers) must not keep the process alive
+    ExitProcess(exitCode);
 }

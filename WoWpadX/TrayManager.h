@@ -13,12 +13,12 @@ public:
     void setMainWindow(QWindow* window);
 
     Q_INVOKABLE void minimizeToTray();
+    void removeTrayIcon();
 
     bool nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result) override;
 
 private:
     void createTrayIcon();
-    void removeTrayIcon();
     void showTrayMessage(const QString& title, const QString& message);
 
     HWND hwnd = nullptr;

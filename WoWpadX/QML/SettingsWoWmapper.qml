@@ -28,7 +28,7 @@ Item {
         }
 */
         CheckBox {
-            text: "Close AzerothPad HD to the notification icon"
+            text: "Minimize AzerothPad HD to the notification icon"
             checked: AppSettings.runInBackground
             onToggled: AppSettings.runInBackground = checked
         }

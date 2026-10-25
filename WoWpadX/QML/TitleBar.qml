@@ -119,7 +119,7 @@ Item {
                     id: minimizeMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: Qt.callLater(() => mainWindow.showMinimized())
+                    onClicked: Qt.callLater(() => AppSettings.runInBackground ? TrayManager.minimizeToTray() : mainWindow.showMinimized())
                 }
             }
 
@@ -185,7 +185,7 @@ Item {
                     id: closeMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: AppSettings.runInBackground ? TrayManager.minimizeToTray() : Qt.quit()
+                    onClicked: Qt.quit()
                 }
             }
         }
