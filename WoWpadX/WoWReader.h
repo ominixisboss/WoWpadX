@@ -50,6 +50,7 @@ private:
     static bool findBeacon();
     static void sampleData();
     static void updateWindowMetrics();
+    static void logDiagnostics();
     static bool captureClient(int x, int y, int w, int h, bool fromWindowDC, std::vector<uint32_t>& out);
     static uint8_t decodeStateBits(uint32_t color);
 };

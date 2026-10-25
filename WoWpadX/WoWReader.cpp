@@ -109,6 +109,14 @@ void WoWReader::threadLoop() {
                         Log::writeLine("Pixel Bridge: Synced with client.");
                         lastSeenBeacon = now;
                     }
+                    else {
+                        // Explain why sync fails, at most every 5 seconds
+                        static auto lastDiag = std::chrono::steady_clock::time_point{};
+                        if (now - lastDiag >= std::chrono::seconds(5)) {
+                            lastDiag = now;
+                            logDiagnostics();
+                        }
+                    }
                 }
             }
             else {
@@ -240,6 +248,48 @@ bool WoWReader::findBeacon() {
         }
     }
     return false;
+}
+
+// Logs what the reader actually sees in the top-left corner, for both capture paths.
+void WoWReader::logDiagnostics() {
+    RECT rc = {};
+    GetClientRect(windowHandle, &rc);
+    wchar_t cls[64] = {};
+    GetClassNameW(windowHandle, cls, 64);
+    POINT origin = { 0, 0 };
+    ClientToScreen(windowHandle, &origin);
+
+    Log::writeLine(QString("Pixel Bridge diag: window class=%1 client=%2x%3 at (%4,%5) focused=%6")
+        .arg(QString::fromWCharArray(cls)).arg(rc.right).arg(rc.bottom)
+        .arg(origin.x).arg(origin.y).arg(focused.load()));
+
+    const int w = (std::min)((int)rc.right, 64), h = (std::min)((int)rc.bottom, 32);
+    for (int attempt = 0; attempt < 2; attempt++) {
+        bool fromWindowDC = (attempt == 1);
+        std::vector<uint32_t> img;
+        if (!captureClient(0, 0, w, h, fromWindowDC, img)) {
+            Log::writeLine(QString("  %1 capture failed").arg(fromWindowDC ? "window" : "screen"));
+            continue;
+        }
+
+        // Most magenta-looking pixel, to see if the threshold is just missed
+        int bestScore = -1000, bx = 0, by = 0;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                uint32_t c = img[(size_t)y * w + x];
+                int score = (std::min)(pxR(c), pxB(c)) - pxG(c);
+                if (score > bestScore) { bestScore = score; bx = x; by = y; }
+            }
+
+        QString row;
+        for (int x = 0; x < (std::min)(w, 16); x++)
+            row += QString("%1 ").arg(img[(size_t)(std::min)(2, h - 1) * w + x], 6, 16, QChar('0'));
+
+        uint32_t best = img[(size_t)by * w + bx];
+        Log::writeLine(QString("  %1: row y=2: %2| most magenta (%3,%4)=%5")
+            .arg(fromWindowDC ? "window" : "screen").arg(row)
+            .arg(bx).arg(by).arg(best, 6, 16, QChar('0')));
+    }
 }
 
 void WoWReader::sampleData() {

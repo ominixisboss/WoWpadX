@@ -49,7 +49,7 @@ Item {
             }
 
             Text {
-                text: "WOWPADX"
+                text: "AZEROTHPAD HD"
                 font.pixelSize: 13
                 color: "white"
             }
