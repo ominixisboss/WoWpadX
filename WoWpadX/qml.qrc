@@ -3,6 +3,7 @@
         <file>QML/main.qml</file>
         <file>QML/MainPage.qml</file>
         <file>QML/SettingsAnalog.qml</file>
+        <file>QML/SettingsTouchpad.qml</file>
         <file>QML/SettingsDevices.qml</file>
         <file>QML/SettingsKeybindings.qml</file>
         <file>QML/SettingsMemoryReading.qml</file>

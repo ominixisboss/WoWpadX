@@ -40,7 +40,14 @@ jobs:
           New-Item -ItemType Directory -Force $out | Out-Null
           Copy-Item build\Release\AzerothPadHD.exe $out
           Copy-Item "sdl\SDL3-$env:SDL_VERSION\lib\x64\SDL3.dll" $out
-          windeployqt --release --qmldir WoWpadX\QML "$out\AzerothPadHD.exe"
+          # windeployqt occasionally fails on the runner; retry before giving up
+          for ($i = 1; $i -le 3; $i++) {
+            windeployqt --release --qmldir WoWpadX\QML "$out\AzerothPadHD.exe"
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Host "windeployqt failed (attempt $i), retrying..."
+            Start-Sleep -Seconds 5
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item README.md $out
           Copy-Item Docs\PixelBridge.md $out
 
