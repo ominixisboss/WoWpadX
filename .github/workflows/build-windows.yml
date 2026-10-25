@@ -3,6 +3,11 @@ name: Build AzerothPad HD (Windows)
 on:
   push:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version to publish, e.g. v1.0.0 (leave empty to only build)'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -58,7 +63,8 @@ jobs:
 
   # Publishes a GitHub release with the app and the addon when a v* tag is pushed
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs for a pushed v* tag, or a manual run with a version filled in
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.version != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -90,9 +96,11 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "AzerothPad HD ${GITHUB_REF_NAME#v}" \
+            --target "$GITHUB_SHA" \
+            --title "AzerothPad HD ${VERSION#v}" \
             --notes-file .github/release-notes.md \
             AzerothPadHD-win64.zip ConsolePortLK-AzerothPadHD.zip
