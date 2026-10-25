@@ -55,3 +55,44 @@ jobs:
         with:
           name: AzerothPadHD-win64
           path: dist/AzerothPadHD
+
+  # Publishes a GitHub release with the app and the addon when a v* tag is pushed
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download app build
+        uses: actions/download-artifact@v4
+        with:
+          name: AzerothPadHD-win64
+          path: AzerothPadHD
+
+      - name: Zip app
+        run: zip -r -q AzerothPadHD-win64.zip AzerothPadHD
+
+      - name: Check out ConsolePortLK addon
+        uses: actions/checkout@v4
+        with:
+          repository: ominixisboss/ConsolePortLK
+          ref: fix/pixel-bridge-hd
+          path: addon
+
+      - name: Zip addon
+        run: |
+          cd addon
+          zip -r -q ../ConsolePortLK-AzerothPadHD.zip ConsolePort ConsolePortAdvanced ConsolePortBar ConsolePortHelp ConsolePortKeyboard ConsolePortLoader ConsolePortUI_Loot ConsolePortUI_Menu
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AzerothPad HD ${GITHUB_REF_NAME#v}" \
+            --notes-file .github/release-notes.md \
+            AzerothPadHD-win64.zip ConsolePortLK-AzerothPadHD.zip
